@@ -1,0 +1,40 @@
+{% load i18n %}
+{% load gravatar %}
+<table class="listing">
+    <thead>
+        <tr>
+            <th class="name">{% trans "Name" %}</th>
+            <th class="username">{% trans "Username" %}</th>
+            <th class="level">{% trans "Level" %}</th>
+            <th class="status">{% trans "Status" %}</th>
+            <th class="yubikey">{% trans "YubiKey" %}</th>
+            <th>&nbsp;</th>
+        </tr>
+    </thead>
+    <tbody>
+    	{% csrf_token %}
+        {% for user in users %}
+            <tr>
+                <td class="title">
+                    <h2>
+                        <span class="avatar small icon icon-user"><img src="{% gravatar_url user.email 25 %}" /></span>
+                        {{ user.get_full_name|default:user.get_username }}
+                    </h2>
+                </td>
+                <td class="username">{{ user.get_username }}</td>
+                <td class="level">{% if user.is_superuser %}{% trans "Admin" %}{% endif %}</td>
+                <td class="status"><div class="status-tag {% if user.is_active %}primary{% endif %}">{% if user.is_active %}{% trans "Active" %}{% else %}{% trans "Inactive" %}{% endif %}</div></td>
+                <td class="yubikey">
+					<input type="text" id="public-id-{{ user.id }}" data-id="{{ user.id }}" value="{{ user.yubikey.public_id }}" maxlength="12">
+					<div class="messages" style="margin-top: 7px;">
+						<ul>
+						</ul>
+					</div>
+				</td>
+				<td>
+					<button id="button-{{ user.id }}" class="button-small button-longrunning save-button" data-clicked-text="{% trans 'Saving' %}" data-id="public-id-{{ user.id }}"><span class="icon icon-spinner"></span><em>{% trans 'Save' %}</em></button>
+                </td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>

@@ -1,0 +1,140 @@
+{% overextends "wagtailadmin/login.html" %}
+{% load staticfiles i18n %}
+{% block titletag %}{% trans "Sign in" %}{% endblock %}
+{% block bodyclass %}login{% endblock %}
+
+
+{% comment %}
+{% endcomment %}
+{% block furniture %}
+    <div class="content-wrapper">
+        {% if messages or form.errors or request.session.incorrect_user %}
+            <div class="messages">
+                <ul>
+                    {% if form.errors %}
+                        <li class="error">{% blocktrans %}Your {{ username_field }} and password didn't match. Please try again.{% endblocktrans %}</li>
+                    {% endif %}
+                    {% for message in messages %}
+                        <li class="{{ message.tags }}">{{ message }}</li>
+                    {% endfor %}
+                    {% if request.session.incorrect_user %}
+                        <li class="error">{% trans 'The YubiKey you supplied did not match up with that user. Please try again.' %}
+                    {% endif %}
+                </ul>
+            </div>
+        {% endif %}
+
+        <form id="login-form" action="{% url 'wagtailadmin_login' %}" method="post" autocomplete="off">
+            {% csrf_token %}
+
+            {% url 'wagtailadmin_home' as home_url %}
+            <input type="hidden" name="next" value="{{ next|default:home_url }}" />
+
+            <h1>{% block branding_login %}{% trans "Sign in to Wagtail" %}{% endblock %}</h1>
+
+            <ul class="fields">
+
+                <li class="full step2">
+                    <div class="field iconfield">
+                        {{ form.username.label_tag }}
+                        <div class="input icon-user">
+                            {{ form.username }}
+                        </div>
+                    </div>
+                </li>
+                <li class="full step2">
+                    <div class="field iconfield">
+                        {{ form.password.label_tag }}
+                        <div class="input icon-password">
+                            {{ form.password }}
+                        </div>
+                    </div>
+                    {% if show_password_reset %}
+                        <p class="help"><a href="{% url 'wagtailadmin_password_reset' %}">{% trans "Forgotten it?" %}</a></p>
+                    {% endif %}
+                </li>
+                
+                <li class="full step1">
+                    <div class="field iconfield">
+                        <div class="input icon-password">
+                            <input type="text" name="yubikey" id="yubikey" placeholder="{% trans 'Enter your YubiKey' %}">
+                        </div>
+                    </div>
+                </li>
+
+                <li class="submit">
+                    <button type="submit" class="button-longrunning" tabindex="3" data-clicked-text="{% trans 'Signing in...' %}"><span class="icon icon-spinner"></span><em>{% trans 'Sign in' %}</em></button>
+                </li>
+            </ul>
+        </form>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(function(){
+        $(".step2").hide();
+        $("#yubikey").on("focus", function(){
+            $(this).prop('type', 'password');
+        }).on("blur", function(){
+            if($(this).val().length == 0){
+                $(this).prop('type', 'text');
+            }
+        });
+        $("#login-form").unbind().on('submit', function(e){
+            e.preventDefault();
+            e.stopPropagation();
+            var button = $(this).find(".button-longrunning"),
+                element = $('em', button)
+                field = $("#yubikey"),
+                $self = $(this);
+
+            $.ajax({
+                url: "{% url 'yubikey-auth' %}",
+                method: 'POST',
+                data: {
+                    'key': field.val(),
+                },
+                success: function(returndata, status, jqXHR) {
+                    console.log(returndata);
+                    var json = returndata;
+                    if( json['verify'] !== undefined && json['verify'] == true){
+                        $self.unbind();
+                        $(".step2").show();
+                        $(".step1").hide();
+                    }
+
+                    var text = "{% trans 'Sign in' %}";
+                    
+                    button.prop('disabled', '')
+                        .removeData('disabledtimeout')
+                        .removeClass('button-longrunning-active');
+                    element.text(text);
+                    field.val('');
+                },
+                error: function(data){
+                    console.log(data.responseText);
+                    var json = $.parseJSON(data.responseText);
+
+                    if( json['error'] !== undefined ){
+                        var text = json['error'];
+                    }
+                    else {
+                        var text = "{% trans 'Processing error' %}";
+                    }
+
+                    button.prop('disabled', '')
+                        .removeData('disabledtimeout')
+                        .removeClass('button-longrunning-active');
+                    element.text(text);
+                    field.val('');
+                },
+                beforeSend: function(xhr, settings) {
+                    var csrftoken = $("input[name=csrfmiddlewaretoken]").first().val();
+                    xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                }
+            });
+        });
+    })
+</script>
+{% endblock %}

@@ -1,0 +1,92 @@
+{% extends "wagtailadmin/base.html" %}
+{% load i18n %}
+{% load gravatar %}
+{% block titletag %}{% trans "YubiKey Setup" %}{% endblock %}
+
+{% block content %}
+    {% trans "YubiKey" as yubikey_str %}
+    {% include "wagtailadmin/shared/header.html" with title=yubikey_str icon="password" %}
+
+    <div class="nice-padding">
+        <div id="user-results" class="users">
+            {% include "yubikey/users-list.html" %}
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+    {{ block.super }}
+    <script>
+        $(document).on("ready", function(){
+            $(".yubikey input").on("keyup", function(e){
+                var key = $(this).val(),
+                    id = $(this).data('id'),
+                    button = $("#button-" + id)
+                    input = $(this),
+                    messages = input.parent().find('.messages ul').first();
+                
+                if(e.which == 13) {
+                    $.ajax({
+                        url: "{% url 'yubikey-setup' %}",
+                        method: 'POST',
+                        data: {
+                            'id': id,
+                            'public_id': key
+                        },
+                        success: function(returndata, status, jqXHR) {
+                            console.log(returndata);
+                            button.text('Saved');
+                            button.removeClass('button-longrunning-active');
+                        },
+                        error: function(data){
+                            console.log(data.responseText);
+                            var json = $.parseJSON(data.responseText);
+
+                            if( json['error'] !== undefined ){
+                                var text = json['error'];
+                            }
+                            else {
+                                var text = "{% trans 'Processing error' %}";
+                            }
+                            button.text('Try again');
+                            button.removeClass('button-longrunning-active');
+                            button.prop('disabled', false);
+
+                            var error = $("<li></li>")
+                                .addClass('error')
+                                .text(text);
+
+                            messages.append(error);
+                        },
+                        beforeSend: function(xhr, settings) {
+                            var csrftoken = $("input[name=csrfmiddlewaretoken]").first().val();
+                            xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                            button.text( button.data('clicked-text') );
+                            button.addClass('button-longrunning-active');
+                            button.prop('disabled', true);
+
+                            messages.children('.error').remove();
+                        }
+                    });
+                }
+                else{
+                    if(e.which < 48 || e.which > 90){
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return false;
+                    }
+
+                    $(this).val(key.substring(0,12));
+                }
+            });
+
+            $(".save-button").on("click", function(){
+                var e = $.Event("keyup"),
+                    id = $(this).data('id'),
+                    input = $("#" + id);
+                e.which = 13;
+                input.trigger(e);
+            });
+        });
+    </script>
+{% endblock %}
