@@ -68,6 +68,7 @@ You should now have a new menu in Wagtail Admin at *Settings* >> *YubiKey*. Here
 
 This is still an early version of this app. Still some tweaks are needed:
 
+- Create pip installer
 - Command line interface for updating and managing ```public_id``` and YubiKeys of users
 - Remove YubiKey from a User
 - Disable YubiKey login requirement for a User
